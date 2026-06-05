@@ -37,13 +37,13 @@ class _SelflearningWidgetState extends State<SelflearningWidget> {
       );
     }
   }
-  Future<void> _pickFile() async{
+  Future<void> _pickFile() async {
     FilePickerResult? result = await FilePicker.pickFiles();
-      if(result != null){
-        setState((){
-          _fileName = result.files.first.name;
-        });
-      }
+    if (result != null) {
+      setState(() {
+        _fileName = result.files.first.name;
+      });
+    }
   }
   @override
   void dispose() {
