@@ -62,14 +62,14 @@ class GeminiController extends _$GeminiController {
 
 @Riverpod(dependencies: [GeminiController])
 class ChatController extends _$ChatController {
-  late final ChatSession chat;
+  late final ChatSession _chatSession;
   static const gemini = types.User(id: 'gemini', firstName: 'Gemini');
   static const me = types.User(id: 'me', firstName: 'Me');
 
   @override
   List<types.Message> build() {
     final model = ref.read(geminiControllerProvider.notifier).loadModel();
-    chat = model.startChat();
+    _chatSession = model.startChat();
     return [];
   }
 
@@ -89,7 +89,7 @@ class ChatController extends _$ChatController {
 
     try {
       final content = Content.text(question);
-      final response = await chat.sendMessage(content);
+      final response = await _chatSession.sendMessage(content);
       final reply = response.text ?? 'No response. Please try again.';
       addMessage(author: gemini, text: reply);
     } catch (e) {
