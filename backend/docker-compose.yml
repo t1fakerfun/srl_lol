@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  app:
+    build: .
+    container_name: srl_lol_backend
+    ports:
+      - "5001:5001"
+
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    command: python database.py
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15-alpine
+    container_name: srl_lol_db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: srl_user
+      POSTGRES_PASSWORD: srl_password
+      POSTGRES_DB: srl_database
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

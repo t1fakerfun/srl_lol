@@ -1,5 +1,7 @@
+import 'package:SRL_LoL/screens/self_learning.dart';
 import 'package:flutter/material.dart';
-import '../helpers/database_helper.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class Report_dbWidget extends StatefulWidget {
   @override
@@ -17,7 +19,22 @@ class _Report_dbWidgetState extends State<Report_dbWidget> {
 
   void _refreshList() {
     setState(() {
-      _reflectionsFuture = DatabaseHelper.instance.fetchReflections();
+      _reflectionsFuture = http
+          .get(url)
+          .then((response) {
+            if (response.statusCode == 200) {
+              final List<dynamic> decodedList = jsonDecode(response.body);
+              return decodedList
+                  .map((item) => Map<String, dynamic>.from(item))
+                  .toList();
+            } else {
+              throw Exception('Failed to load reflections');
+            }
+          })
+          .catchError((error) {
+            print('Error fetching reflections: $error');
+            throw error;
+          });
     });
   }
 
@@ -27,10 +44,7 @@ class _Report_dbWidgetState extends State<Report_dbWidget> {
       appBar: AppBar(
         title: const Text('Reflection History'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _refreshList,
-          )
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _refreshList),
         ],
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
@@ -50,7 +64,9 @@ class _Report_dbWidgetState extends State<Report_dbWidget> {
             itemCount: reflections.length,
             itemBuilder: (context, index) {
               final ref = reflections[index];
-              final date = DateTime.parse(ref['date']).toLocal().toString().split('.')[0];
+              final date = DateTime.parse(
+                ref['date'],
+              ).toLocal().toString().split('.')[0];
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: ListTile(

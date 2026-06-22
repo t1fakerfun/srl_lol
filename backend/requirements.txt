@@ -1,0 +1,6 @@
+janome
+psycopg2-binary
+flask
+google-genai
+flask-cors
+python-dotenv

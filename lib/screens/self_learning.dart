@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
-import '../helpers/database_helper.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+const backendUrl = 'http://127.0.0.1:5001/api/reflection';
+
+var url = Uri.parse(backendUrl);
 
 class SelflearningWidget extends StatefulWidget {
   @override
@@ -49,7 +54,7 @@ class _SelflearningWidgetState extends State<SelflearningWidget> {
   double _routineScore = 3.0;
   List<String> _selectedMetrics = [];
   List<String> _selectedFailures = [];
-  
+
   final TextEditingController _logicController = TextEditingController();
   final TextEditingController _lessonController = TextEditingController();
   String? _fileName;
@@ -66,24 +71,45 @@ class _SelflearningWidgetState extends State<SelflearningWidget> {
       lessonQuality: 3, // 必要に応じてLLM解析などで動的に変更
     );
 
-    // .toMap() を呼び出して Map<String, dynamic> 形式で挿入
-    await DatabaseHelper.instance.insertReflection(reflection.toMap());
-
-    // 送信後のクリア処理
-    _logicController.clear();
-    _lessonController.clear();
-    setState(() {
-      _selectedTargetType = null;
-      _routineScore = 3.0;
-      _selectedMetrics = [];
-      _selectedFailures = [];
-      _currentStep = 0;
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reflection saved successfully!')),
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: jsonEncode(reflection.toMap()),
       );
+      if (response.statusCode == 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('振り返りが保存されました!')));
+        }
+      } else {
+        final resData = jsonDecode(response.body);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('保存に失敗しました: ${resData['error']}')),
+          );
+        }
+        return;
+      }
+
+      // 送信後のクリア処理
+      _logicController.clear();
+      _lessonController.clear();
+      setState(() {
+        _selectedTargetType = null;
+        _routineScore = 3.0;
+        _selectedMetrics = [];
+        _selectedFailures = [];
+        _currentStep = 0;
+      });
+    } catch (e) {
+      print('通信エラー: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('サーバーとの通信に失敗しました')));
+      }
     }
   }
 
@@ -117,7 +143,7 @@ class _SelflearningWidgetState extends State<SelflearningWidget> {
               child: const Text('Upload Your Match Video'),
             ),
             if (_fileName != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text('Selected file: $_fileName'),
             ],
             const SizedBox(height: 16),
@@ -127,9 +153,12 @@ class _SelflearningWidgetState extends State<SelflearningWidget> {
                 border: OutlineInputBorder(),
               ),
               value: _selectedTargetType,
-              items: ['キル関与率を上げる', 'デス数を減らす', '視界確保を強化する', 'CSを安定させる', 'レーンを勝ちにいく']
-                  .map((val) => DropdownMenuItem(value: val, child: Text(val)))
-                  .toList(),
+              items:
+                  ['キル関与率を上げる', 'デス数を減らす', '視界確保を強化する', 'CSを安定させる', 'レーンを勝ちにいく']
+                      .map(
+                        (val) => DropdownMenuItem(value: val, child: Text(val)),
+                      )
+                      .toList(),
               onChanged: (val) => setState(() => _selectedTargetType = val),
             ),
             const SizedBox(height: 16),
@@ -152,25 +181,27 @@ class _SelflearningWidgetState extends State<SelflearningWidget> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text('プレイ中に監視していた指標（複数選択可）'),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Wrap(
               spacing: 8.0,
-              children: ['統計データ (CS/KDA)', '技術・フォーム (位置取りなど)', '敵の状況 (スキル有無等)'].map((metric) {
-                final isSelected = _selectedMetrics.contains(metric);
-                return FilterChip(
-                  label: Text(metric),
-                  selected: isSelected,
-                  onSelected: (checked) {
-                    setState(() {
-                      if (checked) {
-                        _selectedMetrics.add(metric);
-                      } else {
-                        _selectedMetrics.remove(metric);
-                      }
-                    });
-                  },
-                );
-              }).toList(),
+              children: ['統計データ (CS/KDA)', '技術・フォーム (位置取りなど)', '敵の状況 (スキル有無等)']
+                  .map((metric) {
+                    final isSelected = _selectedMetrics.contains(metric);
+                    return FilterChip(
+                      label: Text(metric),
+                      selected: isSelected,
+                      onSelected: (checked) {
+                        setState(() {
+                          if (checked) {
+                            _selectedMetrics.add(metric);
+                          } else {
+                            _selectedMetrics.remove(metric);
+                          }
+                        });
+                      },
+                    );
+                  })
+                  .toList(),
             ),
           ],
         ),
@@ -182,25 +213,32 @@ class _SelflearningWidgetState extends State<SelflearningWidget> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text('失敗・ミスのカテゴリー（複数選択可）'),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Wrap(
               spacing: 8.0,
-              children: ['技術・戦術', '生理・身体 (疲労・ラグ)', '認知・心理 (焦り・ティルト)', '社会・対人 (報告不足)', '自己調整 (目標不適切)'].map((cat) {
-                final isSelected = _selectedFailures.contains(cat);
-                return FilterChip(
-                  label: Text(cat),
-                  selected: isSelected,
-                  onSelected: (checked) {
-                    setState(() {
-                      if (checked) {
-                        _selectedFailures.add(cat);
-                      } else {
-                        _selectedFailures.remove(cat);
-                      }
-                    });
-                  },
-                );
-              }).toList(),
+              children:
+                  [
+                    '技術・戦術',
+                    '生理・身体 (疲労・ラグ)',
+                    '認知・心理 (焦り・ティルト)',
+                    '社会・対人 (報告不足)',
+                    '自己調整 (目標不適切)',
+                  ].map((cat) {
+                    final isSelected = _selectedFailures.contains(cat);
+                    return FilterChip(
+                      label: Text(cat),
+                      selected: isSelected,
+                      onSelected: (checked) {
+                        setState(() {
+                          if (checked) {
+                            _selectedFailures.add(cat);
+                          } else {
+                            _selectedFailures.remove(cat);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -250,11 +288,9 @@ class _SelflearningWidgetState extends State<SelflearningWidget> {
     ];
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Self Learning (Reflection)'),
-      ),
+      appBar: AppBar(title: const Text('Self Learning (Reflection)')),
       body: Stepper(
-        type: StepperType.vertical, 
+        type: StepperType.vertical,
         currentStep: _currentStep,
         onStepContinue: () {
           setState(() {
