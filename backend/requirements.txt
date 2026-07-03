@@ -4,3 +4,7 @@ flask
 google-genai
 flask-cors
 python-dotenv
+opencv-python-headless
+moviepy
+numpy
+imageio-ffmpeg

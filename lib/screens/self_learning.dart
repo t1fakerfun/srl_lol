@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
+import 'dart:async';
 import 'dart:convert';
 
-const backendUrl = 'http://127.0.0.1:5001/api/reflection';
+import '../services/video_uploader.dart';
+
+const backendBaseUrl = 'http://127.0.0.1:5001';
+const backendUrl = '$backendBaseUrl/api/reflection';
 
 var url = Uri.parse(backendUrl);
 
@@ -21,6 +24,7 @@ class SRLReflection {
   String judgementLogic;
   String lessonLearned;
   int lessonQuality;
+  int? videoJobId;
 
   SRLReflection({
     required this.targetType,
@@ -30,6 +34,7 @@ class SRLReflection {
     required this.judgementLogic,
     required this.lessonLearned,
     required this.lessonQuality,
+    this.videoJobId,
   });
 
   Map<String, dynamic> toMap() {
@@ -41,6 +46,7 @@ class SRLReflection {
       'judgementLogic': judgementLogic,
       'lessonLearned': lessonLearned,
       'lessonQuality': lessonQuality,
+      'videoJobId': videoJobId,
     };
   }
 }
@@ -59,6 +65,12 @@ class _SelflearningWidgetState extends State<SelflearningWidget> {
   final TextEditingController _lessonController = TextEditingController();
   String? _fileName;
 
+  // 動画解析ジョブの状態（アップロード直後から振り返り送信より前にバックグラウンドで進む）
+  int? _videoJobId;
+  String? _videoAnalysisStatus; // pending / processing / done / error
+  Map<String, dynamic>? _videoAnalysisResult;
+  Timer? _pollTimer;
+
   // データベースへの送信処理
   Future<void> _submitReflection() async {
     final reflection = SRLReflection(
@@ -69,6 +81,7 @@ class _SelflearningWidgetState extends State<SelflearningWidget> {
       judgementLogic: _logicController.text,
       lessonLearned: _lessonController.text,
       lessonQuality: 3, // 必要に応じてLLM解析などで動的に変更
+      videoJobId: _videoJobId,
     );
 
     try {
@@ -96,12 +109,17 @@ class _SelflearningWidgetState extends State<SelflearningWidget> {
       // 送信後のクリア処理
       _logicController.clear();
       _lessonController.clear();
+      _pollTimer?.cancel();
       setState(() {
         _selectedTargetType = null;
         _routineScore = 3.0;
         _selectedMetrics = [];
         _selectedFailures = [];
         _currentStep = 0;
+        _fileName = null;
+        _videoJobId = null;
+        _videoAnalysisStatus = null;
+        _videoAnalysisResult = null;
       });
     } catch (e) {
       print('通信エラー: $e');
@@ -113,21 +131,132 @@ class _SelflearningWidgetState extends State<SelflearningWidget> {
     }
   }
 
-  // 動画ファイル選択
+  // 動画ファイルを選択し、即座にバックエンドへアップロードして非同期解析を開始する
   Future<void> _pickFile() async {
-    FilePickerResult? result = await FilePicker.pickFiles();
-    if (result != null) {
+    _pollTimer?.cancel();
+    setState(() {
+      _videoJobId = null;
+      _videoAnalysisStatus = null;
+      _videoAnalysisResult = null;
+    });
+
+    try {
+      final upload = await pickAndUploadVideo(
+        uploadUrl: '$backendBaseUrl/api/video_analysis',
+        onPicked: (fileName) {
+          setState(() {
+            _fileName = fileName;
+            _videoAnalysisStatus = 'uploading';
+          });
+        },
+      );
+      if (upload == null) return; // ユーザーがピッカーをキャンセルした
+
       setState(() {
-        _fileName = result.files.first.name;
+        _videoJobId = upload.jobId;
+        _videoAnalysisStatus = upload.status;
       });
+      _startPollingVideoStatus();
+    } catch (e) {
+      print('動画アップロードエラー: $e');
+      if (mounted) {
+        setState(() {
+          _videoAnalysisStatus = 'error';
+        });
+      }
     }
+  }
+
+  // ジョブ状態を定期的にポーリングする（動画解析は時間がかかるため非同期ジョブ化されている）
+  void _startPollingVideoStatus() {
+    _pollTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
+      if (_videoJobId == null) {
+        timer.cancel();
+        return;
+      }
+      try {
+        final response = await http.get(
+          Uri.parse('$backendBaseUrl/api/video_analysis/$_videoJobId'),
+        );
+        if (response.statusCode == 200) {
+          final resData = jsonDecode(response.body);
+          if (mounted) {
+            setState(() {
+              _videoAnalysisStatus = resData['status'];
+              _videoAnalysisResult = resData['result'];
+            });
+          }
+          if (resData['status'] == 'done' || resData['status'] == 'error') {
+            timer.cancel();
+          }
+        }
+      } catch (e) {
+        print('動画解析状況の取得エラー: $e');
+      }
+    });
   }
 
   @override
   void dispose() {
     _logicController.dispose();
     _lessonController.dispose();
+    _pollTimer?.cancel();
     super.dispose();
+  }
+
+  Widget _buildVideoAnalysisStatus() {
+    switch (_videoAnalysisStatus) {
+      case 'uploading':
+        return const Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 8),
+            Text('動画をアップロード中...'),
+          ],
+        );
+      case 'pending':
+      case 'processing':
+        return const Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 8),
+            Text('動画を解析中...（振り返りの入力を続けてください）'),
+          ],
+        );
+      case 'done':
+        final ratio = _videoAnalysisResult?['impulse_control_failure_ratio'];
+        final deathCount = _videoAnalysisResult?['death_count'];
+        final ratioText = ratio != null
+            ? '${(ratio * 100).toStringAsFixed(0)}%'
+            : '-';
+        return Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.green, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('動画解析完了: デス$deathCount回中、衝動性コントロール失敗率 $ratioText'),
+            ),
+          ],
+        );
+      case 'error':
+        return const Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
+            SizedBox(width: 8),
+            Text('動画の解析に失敗しました'),
+          ],
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   @override
@@ -145,6 +274,8 @@ class _SelflearningWidgetState extends State<SelflearningWidget> {
             if (_fileName != null) ...[
               const SizedBox(height: 10),
               Text('Selected file: $_fileName'),
+              const SizedBox(height: 8),
+              _buildVideoAnalysisStatus(),
             ],
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(

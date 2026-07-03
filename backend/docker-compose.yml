@@ -9,6 +9,8 @@ services:
 
     volumes:
       - .:/app
+      - video_uploads:/app/uploads
+      - video_highlights:/app/highlights
     env_file:
       - .env
     command: python database.py
@@ -29,3 +31,5 @@ services:
 
 volumes:
   postgres_data:
+  video_uploads:
+  video_highlights:
