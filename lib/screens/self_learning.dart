@@ -4,8 +4,14 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../services/video_uploader.dart';
+import '../theme/lumen_theme.dart';
 
-const backendBaseUrl = 'http://127.0.0.1:5001';
+// ローカル実行時は何も指定しなければ127.0.0.1:5001を使う。
+// 本番ビルド時は --dart-define=BACKEND_URL=https://api.yatuharo.com を明示的に渡す。
+const backendBaseUrl = String.fromEnvironment(
+  'BACKEND_URL',
+  defaultValue: 'http://127.0.0.1:5001',
+);
 const backendUrl = '$backendBaseUrl/api/reflection';
 
 var url = Uri.parse(backendUrl);
@@ -100,7 +106,7 @@ class _SelflearningWidgetState extends State<SelflearningWidget> {
         final resData = jsonDecode(response.body);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('保存に失敗しました: ${resData['error']}')),
+            SnackBar(content: Text('保存に失敗しました: ${resData['message']}')),
           );
         }
         return;
@@ -237,21 +243,17 @@ class _SelflearningWidgetState extends State<SelflearningWidget> {
         final ratioText = ratio != null
             ? '${(ratio * 100).toStringAsFixed(0)}%'
             : '-';
-        return Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 18),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text('動画解析完了: デス$deathCount回中、衝動性コントロール失敗率 $ratioText'),
-            ),
-          ],
+        return LumenReadout(
+          icon: Icons.check_circle_outline,
+          value: ratioText,
+          caption: 'デス$deathCount回中の衝動性コントロール失敗率',
         );
       case 'error':
-        return const Row(
+        return Row(
           children: [
-            Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
-            SizedBox(width: 8),
-            Text('動画の解析に失敗しました'),
+            const Icon(Icons.error_outline, color: LumenColors.coral, size: 18),
+            const SizedBox(width: 8),
+            Text('動画の解析に失敗しました', style: TextStyle(color: LumenColors.coral)),
           ],
         );
       default:

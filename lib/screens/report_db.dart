@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:video_player/video_player.dart';
 import 'dart:convert';
 
+import '../theme/lumen_theme.dart';
+
 // ファイル名（例: "highlight_1_NORMAL_DEATH_43s.mp4"）を日本語ラベルに変換する
 String _highlightLabel(String highlightRef) {
   final filename = highlightRef.split('/').last;
@@ -60,7 +62,7 @@ class _Report_dbWidgetState extends State<Report_dbWidget> {
       final label = status == 'error' ? '動画解析に失敗しました' : '動画解析中...';
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        child: Text(label, style: const TextStyle(color: Colors.grey)),
+        child: Text(label, style: TextStyle(color: LumenColors.inkMuted)),
       );
     }
 
@@ -71,9 +73,10 @@ class _Report_dbWidgetState extends State<Report_dbWidget> {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      child: Text(
-        '動画解析: デス$deathCount回中、衝動性コントロール失敗率 ${(ratio * 100).toStringAsFixed(0)}%',
-        style: const TextStyle(fontWeight: FontWeight.w500),
+      child: LumenReadout(
+        icon: Icons.speed,
+        value: '${(ratio * 100).toStringAsFixed(0)}%',
+        caption: 'デス$deathCount回中の衝動性コントロール失敗率',
       ),
     );
   }
@@ -201,42 +204,50 @@ class _HighlightPlayerDialogState extends State<_HighlightPlayerDialog> {
     return Dialog(
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_isInitialized) ...[
-              AspectRatio(
-                aspectRatio: _controller.value.aspectRatio,
-                child: VideoPlayer(_controller),
-              ),
-              VideoProgressIndicator(_controller, allowScrubbing: true),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      _controller.value.isPlaying
-                          ? Icons.pause
-                          : Icons.play_arrow,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.8,
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_isInitialized) ...[
+                Flexible(
+                  child: AspectRatio(
+                    aspectRatio: _controller.value.aspectRatio,
+                    child: VideoPlayer(_controller),
+                  ),
+                ),
+                VideoProgressIndicator(_controller, allowScrubbing: true),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        _controller.value.isPlaying
+                            ? Icons.pause
+                            : Icons.play_arrow,
+                      ),
+                      onPressed: () {
+                        _controller.value.isPlaying
+                            ? _controller.pause()
+                            : _controller.play();
+                      },
                     ),
-                    onPressed: () {
-                      _controller.value.isPlaying
-                          ? _controller.pause()
-                          : _controller.play();
-                    },
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('閉じる'),
-                  ),
-                ],
-              ),
-            ] else
-              const Padding(
-                padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator(),
-              ),
-          ],
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('閉じる'),
+                    ),
+                  ],
+                ),
+              ] else
+                const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(),
+                ),
+            ],
+          ),
         ),
       ),
     );

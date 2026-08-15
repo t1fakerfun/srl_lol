@@ -26,5 +26,8 @@ COPY . .
 RUN mkdir -p /app/uploads /app/highlights
 
 # 7. コンテナ起動時に実行されるコマンド
-# 動画解析はAPI経由でアップロードの都度動的に起動されるため、常駐するのはFlaskアプリ本体
-CMD ["python", "database.py"]
+# 動画解析はAPI経由でアップロードの都度動的に起動されるため、常駐するのはFlaskアプリ本体。
+# 本番イメージではFlask開発サーバー(app.run)ではなくgunicornで動かす
+# (ローカル開発はdocker-compose.yml側のcommand指定でpython database.pyのまま上書きされる)。
+# --timeoutは動画アップロードのリクエスト処理に余裕を持たせるため長めに設定。
+CMD ["gunicorn", "--bind", "0.0.0.0:5001", "--workers", "2", "--timeout", "120", "database:app"]

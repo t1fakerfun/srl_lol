@@ -5,7 +5,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'chat_controller.g.dart';
 
-@riverpod
+@Riverpod(keepAlive: true)
 class GeminiController extends _$GeminiController {
   @override
   void build() {}
@@ -50,6 +50,11 @@ class GeminiController extends _$GeminiController {
     - Step 2: その操作ミスの原因となった「認知要求（上記5つ）」を特定する。
     - Step 3: 該当する認知要求に基づき、プレイヤーの「判断のルール（スキーマ）」を揺さぶる質問を1つだけ投げかける（質問は小出しにすること）。
     - Step 4: プレイヤーが「自分の判断基準のズレ」に気づくまで対話を継続し、最終的に「次回から何をトリガーにして判断を切り替えるか（新しいルール）」をプレイヤー自身の言葉でまとめさせてください。
+
+    # 進行管理のルール
+    - 同じ認知要求カテゴリについて質問できるのは最大2往復まで。
+    - 2往復目でもプレイヤーの回答が1往復目と同じ趣旨（言い換えに過ぎない）である場合、そのカテゴリへの深掘りを打ち切り、まだ扱っていない別のカテゴリの観点に切り替えて質問すること。
+    - 質問する前に必ずこれまでの対話履歴を確認し、既に扱ったカテゴリ・質問と同じ趣旨の質問を繰り返さないこと。
     """;
 
     return GenerativeModel(
@@ -60,7 +65,7 @@ class GeminiController extends _$GeminiController {
   }
 }
 
-@Riverpod(dependencies: [GeminiController])
+@Riverpod(keepAlive: true, dependencies: [GeminiController])
 class ChatController extends _$ChatController {
   late final ChatSession _chatSession;
   static const gemini = types.User(id: 'gemini', firstName: 'Gemini');

@@ -9,10 +9,10 @@ app = Flask(__name__)
 CORS(app)  # ★Flutter Webからのアクセスを許可
 
 DB_CONFIG = {
-    "host": "db",
-    "database": "srl_database",
-    "user": "srl_user",
-    "password": "srl_password"
+    "host": os.environ.get("DB_HOST", "db"),
+    "database": os.environ.get("DB_NAME", "srl_database"),
+    "user": os.environ.get("DB_USER", "srl_user"),
+    "password": os.environ.get("DB_PASSWORD", "srl_password"),
 }
 
 def init_db():
@@ -52,11 +52,20 @@ def init_db():
     cur.close()
     conn.close()
 
+# gunicorn配下では `if __name__ == '__main__'` を通らずこのモジュールがimportされるだけなので、
+# ここでinit_db()を呼んでおかないと本番環境でテーブルが作られない。
+init_db()
+
+# ALBのターゲットグループ用ヘルスチェック。DBには触らず、プロセスが生きていることだけを返す。
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "ok"}), 200
+
 @app.route('/api/reflection', methods=['POST'])
 def handle_reflection():
     data = request.get_json()
 
-    print("Received data:", data) 
+    print("Received data:", data)
 
     if data is None:
         return jsonify({"message": "No JSON data received"}), 400
@@ -168,5 +177,4 @@ def stream_highlights(highlight_ref):
 
 
 if __name__ == '__main__':
-    init_db()
     app.run(host='0.0.0.0', port=5001, threaded=True)

@@ -6,12 +6,12 @@ part of 'chat_controller.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$geminiControllerHash() => r'85f3a1370fe2d3d2b10f129df068c9a8c9b6f2c1';
+String _$geminiControllerHash() => r'7e430639376e755edd06450e3cd2a2b681299892';
 
 /// See also [GeminiController].
 @ProviderFor(GeminiController)
 final geminiControllerProvider =
-    AutoDisposeNotifierProvider<GeminiController, void>.internal(
+    NotifierProvider<GeminiController, void>.internal(
       GeminiController.new,
       name: r'geminiControllerProvider',
       debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
@@ -21,13 +21,13 @@ final geminiControllerProvider =
       allTransitiveDependencies: null,
     );
 
-typedef _$GeminiController = AutoDisposeNotifier<void>;
-String _$chatControllerHash() => r'3d4d0e1e726ab367107ad612991943f606da9203';
+typedef _$GeminiController = Notifier<void>;
+String _$chatControllerHash() => r'6b6b5ef56242780089aa6ed5de000af8954425f9';
 
 /// See also [ChatController].
 @ProviderFor(ChatController)
 final chatControllerProvider =
-    AutoDisposeNotifierProvider<ChatController, List<types.Message>>.internal(
+    NotifierProvider<ChatController, List<types.Message>>.internal(
       ChatController.new,
       name: r'chatControllerProvider',
       debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
@@ -40,6 +40,6 @@ final chatControllerProvider =
       },
     );
 
-typedef _$ChatController = AutoDisposeNotifier<List<types.Message>>;
+typedef _$ChatController = Notifier<List<types.Message>>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

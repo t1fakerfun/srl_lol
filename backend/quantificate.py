@@ -42,7 +42,7 @@ def ai_analysis(text):
 
     client = genai.Client(api_key=API_KEY)
 
-    prompt = """
+    prompt = f"""
     # Identity
     あなたは優秀な分析官です。
     反省文の内容を分析し、以下の観点で評価してください。
@@ -70,6 +70,4 @@ def ai_analysis(text):
     except Exception as e:
         print(f"Error during AI analysis: {e}")
         return 0.0
-    
-    
 
