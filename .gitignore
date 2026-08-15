@@ -45,3 +45,9 @@ app.*.map.json
 /android/app/release
 .env
 .env
+
+/backend/.env
+
+# 動画解析のアップロード/ハイライト出力（Docker外で直接backendを動かした場合の保険）
+/backend/uploads/
+/backend/highlights/
