@@ -6,7 +6,7 @@ part of 'chat_controller.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$geminiControllerHash() => r'7e430639376e755edd06450e3cd2a2b681299892';
+String _$geminiControllerHash() => r'e591c4026949b87225ce961eab95631b4c40c1ca';
 
 /// See also [GeminiController].
 @ProviderFor(GeminiController)

@@ -1,10 +1,13 @@
 import 'package:SRL_LoL/screens/self_learning.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:video_player/video_player.dart';
 import 'dart:convert';
 
+import '../session_controller.dart';
 import '../theme/lumen_theme.dart';
+import '../widgets/help_button.dart';
 
 // ファイル名（例: "highlight_1_NORMAL_DEATH_43s.mp4"）を日本語ラベルに変換する
 String _highlightLabel(String highlightRef) {
@@ -18,13 +21,15 @@ String _highlightLabel(String highlightRef) {
   return '$typeLabel @ $seconds秒';
 }
 
-class Report_dbWidget extends StatefulWidget {
+class Report_dbWidget extends ConsumerStatefulWidget {
   @override
-  _Report_dbWidgetState createState() => _Report_dbWidgetState();
+  ConsumerState<Report_dbWidget> createState() => _Report_dbWidgetState();
 }
 
-class _Report_dbWidgetState extends State<Report_dbWidget> {
+class _Report_dbWidgetState extends ConsumerState<Report_dbWidget> {
   late Future<List<Map<String, dynamic>>> _reflectionsFuture;
+  // true: 自分の振り返りのみ / false: 全プレイヤーの振り返り
+  bool _onlyMine = true;
 
   @override
   void initState() {
@@ -32,10 +37,18 @@ class _Report_dbWidgetState extends State<Report_dbWidget> {
     _refreshList();
   }
 
+  // 「自分」ならログイン中のプレイヤーで絞り込み、「みんな」なら全員分を表示する
   void _refreshList() {
+    final player = ref.read(sessionControllerProvider).valueOrNull;
+    final uri = Uri.parse('$backendBaseUrl/api/reflections').replace(
+      queryParameters: (_onlyMine && player != null)
+          ? {'player_id': '${player.id}'}
+          : null,
+    );
+
     setState(() {
       _reflectionsFuture = http
-          .get(Uri.parse('$backendBaseUrl/api/reflections'))
+          .get(uri)
           .then((response) {
             if (response.statusCode == 200) {
               final List<dynamic> decodedList = jsonDecode(response.body);
@@ -103,7 +116,8 @@ class _Report_dbWidgetState extends State<Report_dbWidget> {
             onPressed: () => showDialog(
               context: context,
               builder: (_) => _HighlightPlayerDialog(
-                url: '$backendBaseUrl/api/video_analysis/highlights/$highlightRef',
+                url:
+                    '$backendBaseUrl/api/video_analysis/highlights/$highlightRef',
               ),
             ),
           );
@@ -118,48 +132,91 @@ class _Report_dbWidgetState extends State<Report_dbWidget> {
       appBar: AppBar(
         title: const Text('Reflection History'),
         actions: [
+          HelpButton(
+            title: '振り返り履歴の使い方',
+            points: [
+              '基準をクリアして保存された過去の振り返りが新しい順に一覧表示されます。',
+              '「自分」「みんな」で、自分の振り返りだけか、全プレイヤーの振り返りかを切り替えられます。',
+              '試合動画を添付していた振り返りには、衝動性コントロール失敗率などの解析結果とハイライトクリップが表示されます。クリップはタップで再生できます。',
+              '右上の更新ボタンで最新の状態に取得し直せます。',
+            ],
+          ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _refreshList),
         ],
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _reflectionsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No reflections found.'));
-          }
-
-          final reflections = snapshot.data!;
-
-          return ListView.builder(
-            itemCount: reflections.length,
-            itemBuilder: (context, index) {
-              final ref = reflections[index];
-              final date = DateTime.parse(
-                ref['date'],
-              ).toLocal().toString().split('.')[0];
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    ListTile(
-                      title: Text(ref['topic']),
-                      subtitle: Text('${ref['content']}\n\n$date'),
-                      isThreeLine: true,
-                    ),
-                    _buildVideoMetric(ref),
-                    _buildHighlightList(ref),
-                  ],
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(
+                  value: true,
+                  label: Text('自分'),
+                  icon: Icon(Icons.person),
                 ),
-              );
-            },
-          );
-        },
+                ButtonSegment(
+                  value: false,
+                  label: Text('みんな'),
+                  icon: Icon(Icons.groups),
+                ),
+              ],
+              selected: {_onlyMine},
+              onSelectionChanged: (selection) {
+                _onlyMine = selection.first;
+                _refreshList();
+              },
+            ),
+          ),
+          Expanded(child: _buildList()),
+        ],
       ),
+    );
+  }
+
+  Widget _buildList() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _reflectionsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text('No reflections found.'));
+        }
+
+        final reflections = snapshot.data!;
+
+        return ListView.builder(
+          itemCount: reflections.length,
+          itemBuilder: (context, index) {
+            final ref = reflections[index];
+            final date = DateTime.parse(
+              ref['date'],
+            ).toLocal().toString().split('.')[0];
+            return Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ListTile(
+                    title: Text(ref['topic']),
+                    // 「みんな」表示では誰の振り返りか分かるようにRiot IDを添える
+                    subtitle: Text(
+                      '${ref['content']}\n\n$date'
+                      '${!_onlyMine && ref['author'] != null ? '  ・  ${ref['author']}' : ''}',
+                    ),
+                    isThreeLine: true,
+                  ),
+                  _buildVideoMetric(ref),
+                  _buildHighlightList(ref),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -171,8 +228,7 @@ class _HighlightPlayerDialog extends StatefulWidget {
   const _HighlightPlayerDialog({required this.url});
 
   @override
-  State<_HighlightPlayerDialog> createState() =>
-      _HighlightPlayerDialogState();
+  State<_HighlightPlayerDialog> createState() => _HighlightPlayerDialogState();
 }
 
 class _HighlightPlayerDialogState extends State<_HighlightPlayerDialog> {

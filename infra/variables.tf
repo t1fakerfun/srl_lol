@@ -14,3 +14,9 @@ variable "gemini_api_key" {
   type        = string
   sensitive   = true
 }
+
+variable "riot_api_key" {
+  description = "Riot APIキー"
+  type        = string
+  sensitive   = true
+}
