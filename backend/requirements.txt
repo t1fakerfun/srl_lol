@@ -9,3 +9,4 @@ moviepy
 numpy
 imageio-ffmpeg
 gunicorn
+requests

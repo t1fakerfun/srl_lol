@@ -1,3 +1,4 @@
 # cp terraform.tfvars.example terraform.tfvars してから値を埋める
 # bucket_nameはS3全体でグローバルに一意な名前である必要がある(他の誰かが使っていると失敗する)
 bucket_name = "srl-lol-web-yourname"
+riot_api_key = "RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"

@@ -63,7 +63,8 @@ resource "aws_ecs_task_definition" "service" {
         { name = "DB_NAME", value = aws_db_instance.reflection.db_name },
         { name = "DB_USER", value = aws_db_instance.reflection.username },
         { name = "DB_PASSWORD", value = var.db_password },
-        { name = "API_KEY", value = var.gemini_api_key }
+        { name = "API_KEY", value = var.gemini_api_key },
+        { name = "RIOT_API_KEY", value = var.riot_api_key }
       ]
       #Secret managerを使うべきだが、金がかかる。
       essential = true
